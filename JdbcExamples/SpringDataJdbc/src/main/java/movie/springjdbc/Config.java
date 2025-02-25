@@ -1,13 +1,12 @@
 package movie.springjdbc;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
 import javax.sql.DataSource;
 
-import org.eclipse.yasson.YassonJsonb;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -16,20 +15,18 @@ import org.springframework.data.convert.WritingConverter;
 import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
 import org.springframework.data.jdbc.repository.config.AbstractJdbcConfiguration;
 
-import jakarta.json.bind.Jsonb;
-import jakarta.json.bind.JsonbBuilder;
-import jakarta.json.stream.JsonGenerator;
-import jakarta.json.stream.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import movie.springjdbc.model.MovieDetails;
-import oracle.sql.json.OracleJsonFactory;
-import oracle.sql.json.OracleJsonGenerator;
+import oracle.jdbc.provider.oson.JacksonOsonConverter;
+import oracle.jdbc.provider.oson.OsonFactory;
+import oracle.jdbc.provider.oson.OsonGenerator;
+import oracle.sql.json.OracleJsonDatum;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
 @Configuration
 public class Config extends AbstractJdbcConfiguration {
-    
-    private static OracleJsonFactory FACTORY = new OracleJsonFactory();
     
     @Bean
     DataSource dataSource() throws SQLException {
@@ -39,10 +36,10 @@ public class Config extends AbstractJdbcConfiguration {
         dataSource.setInitialPoolSize(5);
         dataSource.setMinPoolSize(5);
         dataSource.setMaxPoolSize(10);
-        dataSource.setConnectionProperty("oracle.jdbc.jsonDefaultGetObjectType","jakarta.json.stream.JsonParser");
+        dataSource.setConnectionProperty("oracle.jdbc.jsonDefaultGetObjectType","oracle.sql.json.OracleJsonDatum");
         return dataSource;
     }
-    
+
     @Override
     @Bean
     public JdbcCustomConversions jdbcCustomConversions() {
@@ -55,27 +52,34 @@ public class Config extends AbstractJdbcConfiguration {
     }
     
     @ReadingConverter
-    private static class MovieDetailsReader implements Converter<JsonParser, MovieDetails> {
+    private static class MovieDetailsReader implements Converter<OracleJsonDatum, MovieDetails> {
         @Override
-        public MovieDetails convert(JsonParser source) {
-            Jsonb jsonb = JsonbBuilder.create();
-            return ((YassonJsonb)jsonb).fromJson(source, MovieDetails.class);
+        public MovieDetails convert(OracleJsonDatum source) {
+            ObjectMapper mapper = JacksonOsonConverter.getObjectMapper();
+            try {
+                return mapper.readValue(source.shareBytes(), MovieDetails.class);
+            } catch (IOException e) {
+                throw new IllegalArgumentException(e);
+            }
         }
     }
     
     @WritingConverter
-    private static class MovieDetailsWriter implements Converter<MovieDetails, JsonParser> {
-        OracleJsonFactory factory = new OracleJsonFactory();
-        
+    private static class MovieDetailsWriter implements Converter<MovieDetails, OracleJsonDatum> {
         @Override
-        public JsonParser convert(MovieDetails source) {
-            Jsonb jsonb = JsonbBuilder.create();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            OracleJsonGenerator gen = factory.createJsonBinaryGenerator(baos);
-            ((YassonJsonb)jsonb).toJson(source, gen.wrap(JsonGenerator.class));
-            gen.close();
-            return FACTORY.createJsonBinaryParser(ByteBuffer.wrap(baos.toByteArray())).wrap(JsonParser.class);
+        public OracleJsonDatum convert(MovieDetails source) {
+            ObjectMapper mapper = JacksonOsonConverter.getObjectMapper();
+            OsonFactory factory = (OsonFactory) mapper.getFactory();
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+              try (OsonGenerator osonGen = (OsonGenerator) factory.createGenerator(out)) {
+                mapper.writeValue(osonGen, source);
+              }
+              return new OracleJsonDatum(out.toByteArray());
+            } catch (IOException e) {
+              throw new IllegalArgumentException(e);
+            } 
         }
     }
+
 
 }

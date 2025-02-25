@@ -30,10 +30,12 @@ public class UpdateMerge {
         try (Connection con = pool.getConnection()) {
         
             PreparedStatement stmt = con.prepareStatement(
-                "UPDATE movie m " +
-                "SET m.data = JSON_MERGEPATCH(m.data, :1) " +
-                "WHERE m.data.name.string() = :2");
-                
+                """
+                UPDATE movie m 
+                SET m.data = JSON_MERGEPATCH(m.data, :1) 
+                WHERE m.data.name.string() = :2
+                """
+            );
             OracleJsonObject patch = factory.createObject();
             patch.put("release", OffsetDateTime.of(2014, 11, 7, 0, 0, 0, 0, ZoneOffset.UTC));
             patch.put("gross", 1_000_000_000);

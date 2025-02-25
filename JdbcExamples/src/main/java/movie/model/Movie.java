@@ -1,6 +1,7 @@
 package movie.model;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +12,8 @@ public class Movie {
     String genre;
     
     BigDecimal gross;
+    
+    OffsetDateTime release;
     
     List<Image> images = new ArrayList<Image>();
 
@@ -48,6 +51,14 @@ public class Movie {
     
     public void setImages(List<Image> phones) {
         this.images = phones;
+    }
+    
+    public OffsetDateTime getRelease() {
+        return this.release;
+    }
+    
+    public void setRelease(OffsetDateTime release) {
+        this.release = release;
     }
 
 }
