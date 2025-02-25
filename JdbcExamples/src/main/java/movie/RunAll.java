@@ -17,9 +17,6 @@ public class RunAll {
         
         print("Running JSONB");
         JSONB.main(args);
-
-        print("Running Jackson");
-        Jackson.main(args);
         
         print("Running Update");
         Update.main(args);

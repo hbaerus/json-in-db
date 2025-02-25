@@ -12,7 +12,7 @@ public class Image {
     
     public Image(String file, String description) {
         this.file = file;
-        this.file = file;
+        this.description = description;
     }
 
     public String getFile() {

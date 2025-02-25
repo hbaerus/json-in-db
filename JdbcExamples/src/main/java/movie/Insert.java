@@ -1,11 +1,16 @@
 package movie;
 
 import java.io.FileInputStream;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 
+import movie.model.Image;
+import movie.model.Movie;
 import oracle.jdbc.OracleType;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonObject;
@@ -53,7 +58,20 @@ public class Insert {
             in.close();
             pstmt.execute();
             
-            System.out.println("Inserted three movies into the movie table");
+            // Jackson Data Bind (works because of dependency ojdbc-provider-jackson-oson)
+            Movie movie = new Movie();
+            movie.setName("The Godfather");
+            movie.setGross(BigDecimal.valueOf(246120974));
+            movie.setGenre("Drama");
+            
+            List<Image> images = new ArrayList<Image>();
+            images.add(new Image("img1.png", "Main movie poster"));
+            images.add(new Image("img2.png", "Marlon Brando"));
+            movie.setImages(images);
+            pstmt.setObject(1, movie, OracleType.JSON);
+            pstmt.execute();
+            
+            System.out.println("Inserted four movies into the movie table");
         }
     }
 }

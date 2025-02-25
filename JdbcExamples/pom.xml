@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
@@ -11,35 +12,35 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
-  <plugins>
-    <plugin>
+    <plugins>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>2.4</version>
         <configuration>
-            <source>17</source>
-            <target>17</target>
+          <source>21</source>
+          <target>21</target>
         </configuration>
-    </plugin>
+      </plugin>
 
-  <plugin>
-    <groupId>org.codehaus.mojo</groupId>
-    <artifactId>exec-maven-plugin</artifactId>
-    <version>1.6.0</version>
-    <executions>
-      <execution>
-        <goals>
-          <goal>java</goal>
-        </goals>
-      </execution>
-    </executions>
-    <configuration>
-      <cleanupDaemonThreads>false</cleanupDaemonThreads>
-      <classpathScope>runtime</classpathScope>
-    </configuration>
-  </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>java</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <cleanupDaemonThreads>false</cleanupDaemonThreads>
+          <classpathScope>runtime</classpathScope>
+        </configuration>
+      </plugin>
 
-  </plugins>
+    </plugins>
   </build>
   <dependencies>
     <dependency>
@@ -49,14 +50,14 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-        <groupId>com.oracle.database.jdbc</groupId>
-        <artifactId>ojdbc11</artifactId>
-        <version>23.2.0.0</version>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc17</artifactId>
+      <version>23.7.0.25.01</version>
     </dependency>
     <dependency>
-        <groupId>com.oracle.database.jdbc</groupId>
-        <artifactId>ucp11</artifactId>
-        <version>23.2.0.0</version>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ucp11</artifactId>
+      <version>23.7.0.25.01</version>
     </dependency>
     <dependency>
       <groupId>jakarta.json.bind</groupId>
@@ -79,14 +80,29 @@
       <version>3.0.3</version>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-      <version>2.11.0</version>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.8.9</version>
     </dependency>
     <dependency>
-	  <groupId>com.google.code.gson</groupId>
-	  <artifactId>gson</artifactId>
-	  <version>2.8.9</version>
-	</dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc-provider-jackson-oson</artifactId>
+      <version>1.0.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc-provider-common</artifactId>
+      <version>1.0.3</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.18.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <version>2.18.1</version>
+    </dependency>
   </dependencies>
 </project>
