@@ -13,4 +13,4 @@ Stores instances of the class [Movie](src/main/java/movie/springjdbc/model/Movie
 The nested class [MovieDetails](src/main/java/movie/springjdbc/model/MovieDetails.java)
 is stored within the details column as JSON.
 
-JSON-B (jakarta.json.bind) is used to automatically convert the MovieDetails instances directly to from OSON in [Config.java](src/main/java/movie/springjdbc/Config.java).
+Jackson databind is used to automatically convert the MovieDetails instances directly to from OSON in [Config.java](src/main/java/movie/springjdbc/Config.java).
