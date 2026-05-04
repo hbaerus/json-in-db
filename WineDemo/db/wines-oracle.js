@@ -2,22 +2,83 @@
 
 var oracledb = require('oracledb');
 
+function requiredEnv(name) {
+  var value = process.env[name];
+  if (!value) {
+    throw new Error(name + ' must be set');
+  }
+  return value;
+}
+
 var config = {
-  user: process.env.NODE_ORACLEDB_USER || "scott",
-  password: process.env.NODE_ORACLEDB_PASSWORD || "tiger",
-  connectString : process.env.NODE_ORACLEDB_CONNECTIONSTRING || "172.17.0.2/orclpdb",
+  user: requiredEnv('NODE_ORACLEDB_USER'),
+  password: requiredEnv('NODE_ORACLEDB_PASSWORD'),
+  connectString : requiredEnv('NODE_ORACLEDB_CONNECTIONSTRING'),
   poolMin: 10,
   poolMax: 10,
   poolIncrement: 0
 }
 
+var ALLOWED_QBE_FIELDS = {
+  name: true,
+  notes: true,
+  price: true,
+  region: true,
+  type: true
+};
+
+function parseQbe(qbe) {
+  if (qbe == null || qbe === '') {
+    return null;
+  }
+
+  var parsed;
+  try {
+    parsed = JSON.parse(qbe);
+  } catch (err) {
+    err.statusCode = 400;
+    throw err;
+  }
+
+  validateQbe(parsed);
+  return parsed;
+}
+
+function validateQbe(qbe) {
+  if (qbe == null || Array.isArray(qbe) || typeof qbe !== 'object') {
+    var err = new Error('QBE filter must be an object');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  Object.keys(qbe).forEach(function(key) {
+    if (key.charAt(0) === '$' || !ALLOWED_QBE_FIELDS[key]) {
+      var err = new Error('QBE filter contains an unsupported field');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (qbe[key] != null && typeof qbe[key] === 'object') {
+      var err = new Error('QBE filter values must be scalar');
+      err.statusCode = 400;
+      throw err;
+    }
+  });
+}
+
 async function initialize() {
+  var conn;
   oracledb.autoCommit = true;
   await oracledb.createPool(config);
-  var conn = await oracledb.getConnection();
-  var soda = conn.getSodaDatabase();
-  var collection = await soda.createCollection('wines');
-  await collection.createIndex({ "name" : "WINE_IDX" });
+  try {
+    conn = await oracledb.getConnection();
+    var soda = conn.getSodaDatabase();
+    var collection = await soda.createCollection('wines');
+    await collection.createIndex({ "name" : "WINE_IDX" });
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
+  }
 }
 
 async function close() {
@@ -25,41 +86,63 @@ async function close() {
 }
 
 async function get(qbe) {
-  var conn = await oracledb.getConnection();
-  var collection = await getCollection(conn);
-  var builder = collection.find();
-  if (qbe != null) {
-    builder.filter(JSON.parse(qbe));
+  var conn;
+  try {
+    conn = await oracledb.getConnection();
+    var collection = await getCollection(conn);
+    var builder = collection.find();
+    var parsedQbe = parseQbe(qbe);
+    if (parsedQbe != null) {
+      builder.filter(parsedQbe);
+    }
+    var docs = await builder.getDocuments();
+    return toJSON(docs);
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
   }
-  var docs = await builder.getDocuments();
-  var res = toJSON(docs);
-  conn.close();
-  return res;
 }
 
 async function update(id, review) {
   delete review.id;
-  var conn = await oracledb.getConnection();
-  var collection = await getCollection(conn);
-  var result = await collection.find().key(id).replaceOne(review);
-  conn.close();
-  return result;
+  var conn;
+  try {
+    conn = await oracledb.getConnection();
+    var collection = await getCollection(conn);
+    return await collection.find().key(id).replaceOne(review);
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
+  }
 }
 
 async function create(review) {
-  var conn = await oracledb.getConnection();
-  var collection = await getCollection(conn);
-  var result = await collection.insertOneAndGet(review);
-  var key = result.key;
-  conn.close();
-  return key;
+  var conn;
+  try {
+    conn = await oracledb.getConnection();
+    var collection = await getCollection(conn);
+    var result = await collection.insertOneAndGet(review);
+    return result.key;
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
+  }
 }
 
 async function remove(id) {
-  var conn = await oracledb.getConnection();
-  var collection = await getCollection(conn);
-  var res = await collection.find().key(id).remove();
-  conn.close();
+  var conn;
+  try {
+    conn = await oracledb.getConnection();
+    var collection = await getCollection(conn);
+    return await collection.find().key(id).remove();
+  } finally {
+    if (conn) {
+      await conn.close();
+    }
+  }
 }
 
 function code() {

@@ -26,9 +26,13 @@ define(['ojs/ojcore', 'knockout', 'ojs/ojmodule-element-utils', 'ojs/ojmodule-el
         'modify/{key}': {label: 'Modify', value: 'modify'},
         'add':          {label: 'Add',    value: 'add'},
         'about':        {label: 'About',  value: 'about'}
-      });
-      self.serviceURL = "/wines"; //http://localhost:3001
-      var getVerb = function(verb) {
+	      });
+	      self.serviceURL = "/wines"; //http://localhost:3001
+	      var getAuthHeaders = function() {
+	        var token = window.localStorage.getItem('WINE_API_TOKEN');
+	        return token ? {'Authorization': 'Bearer ' + token} : {};
+	      };
+	      var getVerb = function(verb) {
         if (verb === "update" || verb === "create") {
           return "POST";
         }
@@ -48,11 +52,12 @@ define(['ojs/ojcore', 'knockout', 'ojs/ojmodule-element-utils', 'ojs/ojmodule-el
               retObj['url'] = self.serviceURL + "/" + options['recordID'];
           } else if (operation === "read" && "" !== self.filter()) {
               retObj['url'] = self.serviceURL + "?qbe=" + self.filter();
-          } else {
-              retObj['url'] = self.serviceURL;
-          }
-          return retObj;
-      };
+	          } else {
+	              retObj['url'] = self.serviceURL;
+	          }
+	          retObj['headers'] = getAuthHeaders();
+	          return retObj;
+	      };
       
       self.filter = ko.observable('');
       self.ReviewDef = oj.Model.extend({
@@ -162,8 +167,7 @@ define(['ojs/ojcore', 'knockout', 'ojs/ojmodule-element-utils', 'ojs/ojmodule-el
         new footerLink('Contact Us', 'contactUs', 'http://www.oracle.com/us/corporate/contact/index.html'),
         new footerLink('Legal Notices', 'legalNotices', 'http://www.oracle.com/us/legal/index.html'),
         new footerLink('Terms Of Use', 'termsOfUse', 'http://www.oracle.com/us/legal/terms/index.html'),
-        new footerLink('Your Privacy Rights', 'yourPrivacyRights', 'http://www.oracle.com/us/legal/privacy/index.html'),
-        new footerLink('Reset Demo', 'resetDemo', '/wines-reset')
+        new footerLink('Your Privacy Rights', 'yourPrivacyRights', 'http://www.oracle.com/us/legal/privacy/index.html')
       ]);
      }
 

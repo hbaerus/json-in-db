@@ -51,9 +51,11 @@ This container would run express server and issue SODA calls to Oracle Database
   ~~~~
   $ docker run -it \
                --env NODE_ORACLEDB_USER=<your_database_username> \
-               --env NODE_ORACLEDB_PASSWORD=<your_database_password> \
-               --env NODE_ORACLEDB_CONNECTIONSTRING=<your_service_name> \
-               --volume <your_path_to_wallet>:<your_path_to_wallet> \
+	               --env NODE_ORACLEDB_PASSWORD=<your_database_password> \
+	               --env NODE_ORACLEDB_CONNECTIONSTRING=<your_service_name> \
+	               --env MUSPRINT_API_TOKEN=<your_api_token> \
+	               --env MUSPRINT_ALLOWED_ORIGINS=http://localhost:3000 \
+	               --volume <your_path_to_wallet>:<your_path_to_wallet> \
                --env TNS_ADMIN=<your_path_to_wallet> \
                -p 5000:5000 \
                musprint-stories:1.0.0

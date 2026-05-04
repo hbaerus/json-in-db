@@ -7,27 +7,21 @@ drop user appdb cascade;
 CREATE TABLESPACE APPDB DATAFILE 'appdb.dbf' SIZE 1G reuse AUTOEXTEND ON nologging;
 
 -- creating user
-CREATE USER appdb IDENTIFIED BY kristaalthea
+CREATE USER appdb IDENTIFIED BY "&APPDB_PASSWORD"
 	DEFAULT TABLESPACE APPDB
 	QUOTA UNLIMITED ON APPDB;
 
 -- assiging privileges
-grant dba to appdb;
-grant ALTER ANY PROCEDURE to appdb;
-grant ALTER SYSTEM to appdb;
-grant CREATE ANY PROCEDURE to appdb;
+grant CREATE SESSION to appdb;
 grant CREATE PROCEDURE to appdb;
+grant CREATE SEQUENCE to appdb;
 grant CREATE TABLE to appdb;
-grant DEBUG ANY PROCEDURE to appdb;
-grant DEBUG CONNECT SESSION to appdb;
-grant EXECUTE ANY PROCEDURE to appdb;
-grant UNLIMITED TABLESPACE to appdb;
 
 -- Creates the user table with three columns; user id number, username and password
 CREATE TABLE "APPDB"."user" 
    (	"USER_ID" NUMBER(*,0) NOT NULL ENABLE, 
 	"USERNAME" VARCHAR2(50 CHAR) NOT NULL ENABLE, 
-	"PASSWORD" VARCHAR2(50 CHAR) NOT NULL ENABLE, 
+	"PASSWORD" VARCHAR2(255 CHAR) NOT NULL ENABLE,
 	 PRIMARY KEY ("USER_ID")
    );
 
@@ -46,16 +40,16 @@ PARAMETERS ('section group CTXSYS.JSON_SECTION_GROUP SYNC (ON COMMIT)');
 
 -- How to add in users
 truncate table "user";
-insert into "user" (user_id, username, password) values (1, 'john', 'doe');
-insert into "user" (user_id, username, password) values (2, 'jane', 'doe');
-insert into "user" (user_id, username, password) values (3, 'jason', 'smith');
-insert into "user" (user_id, username, password) values (4, 'jill', 'smith');
-insert into "user" (user_id, username, password) values (5, 'tiffany', 'zang');
-insert into "user" (user_id, username, password) values (6, 'thomas', 'zhao');
-insert into "user" (user_id, username, password) values (7, 'monique', 'lee');
-insert into "user" (user_id, username, password) values (8, 'megan', 'lee');
-insert into "user" (user_id, username, password) values (9, 'patrick', 'tran');
-insert into "user" (user_id, username, password) values (10, 'jordan', 'stender');
+insert into "user" (user_id, username, password) values (1, 'john', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1qb2hu$aRrEApT0WiH4tXHzY2yCwIM4p5u2E3x0x5r/bzBsQ/E=');
+insert into "user" (user_id, username, password) values (2, 'jane', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1qYW5l$C4xAyhBs2I181EFv5U9c2XtKGhXTRReqOmjORWKrT1s=');
+insert into "user" (user_id, username, password) values (3, 'jason', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1qYXNvbg==$ZXUL9JJjwf/KhPY4SaHEzuSyrntOF1hrzSaNlNMysFM=');
+insert into "user" (user_id, username, password) values (4, 'jill', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1qaWxs$V2CauZ2/c3XEXU1RxYZm9VH0dNbhpGLyYCcnci4r6NE=');
+insert into "user" (user_id, username, password) values (5, 'tiffany', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi10aWZmYW55$gdjcHfycZ9uTAy99hvGDsNM/HRFfl/5orSyBG94MypA=');
+insert into "user" (user_id, username, password) values (6, 'thomas', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi10aG9tYXM=$R1rklrdPFJzHES17NFG/pBbw+f88QrjW3pLjRau2ZGY=');
+insert into "user" (user_id, username, password) values (7, 'monique', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1tb25pcXVl$EmjM345UJhDiHdAF67TpbH6k2LKtMTVVLSQUBC7fUw4=');
+insert into "user" (user_id, username, password) values (8, 'megan', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1tZWdhbg==$OVqEvfyHoJLqb+KJgNwHkd9EvG5pYGwngDBSCPBfI90=');
+insert into "user" (user_id, username, password) values (9, 'patrick', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1wYXRyaWNr$zWTnZN1Rck+fl3vjHj0zlZGfN7huk4eFOReJVFOAg0Q=');
+insert into "user" (user_id, username, password) values (10, 'jordan', 'pbkdf2_sha256$200000$anNvbi1pbi1kYi1qb3JkYW4=$/qVzmIggGT+grdtSH5d3Dss9AY7HDvpd8XWiMNlQgc8=');
 commit;
 
 -- How to add a profile for a user
@@ -71,6 +65,4 @@ insert into user_profile (comment_id, doc) values (8, '{"Profname":"Megan", "use
 insert into user_profile (comment_id, doc) values (9, '{"Profname":"Patrick", "username":"patrick", "age":22, "picture":"http://i58.tinypic.com/25kmzwz.png", "about":"Cat person all the way", "email":"patrick@email.com", "phone":"123-456-7890", "loc":"San Francisco", "groupd":"Database Security", "empid":"123456", "school":"UPenn", "gradYear":"2013", "involv":"Alpha delt literary society"}'); 
 insert into user_profile (comment_id, doc) values (10, '{"Profname":"Jordan", "username":"jordan", "age":26, "picture":"http://i58.tinypic.com/25kmzwz.png", "about":"I spend my weekends sailing on my yacht", "email":"john@email.com", "phone":"123-456-7890", "loc":"San Francisco", "groupd":"Database Security", "empid":"123456", "school":"Harvard", "gradYear":"2008", "involv":"Student Body President"}');
 commit;
-
-
 

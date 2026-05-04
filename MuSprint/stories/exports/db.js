@@ -1,6 +1,14 @@
 // Properties file for the database instance
+function requiredEnv(name) {
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(name + ' must be set');
+	}
+	return value;
+}
+
 module.exports = {
-		user: process.env.NODE_ORACLEDB_USER || "mustory_own",
-		password: process.env.NODE_ORACLEDB_PASSWORD || "Str0ng_mustory_pwd",
-		connectString: process.env.NODE_ORACLEDB_CONNECTIONSTRING || "localhost:1521/XE"
-};
+			user: requiredEnv('NODE_ORACLEDB_USER'),
+			password: requiredEnv('NODE_ORACLEDB_PASSWORD'),
+			connectString: requiredEnv('NODE_ORACLEDB_CONNECTIONSTRING')
+	};
