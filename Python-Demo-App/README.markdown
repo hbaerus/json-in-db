@@ -25,12 +25,14 @@ In order to run the app on your machine you’ll need to follow these quick inst
 
 ## Running the DB Setup Script
 
-Once you have successfully installed all the dependencies above, you’ll need to run a SQL setup script. You can run this script however you like, but we recommend installing [SQL Developer](http://www.oracle.com/technetwork/developer-tools/sql-developer/downloads/index.html) because it has a GUI interface so you can view the data easily.
+Once you have successfully installed all the dependencies above, you’ll need to run a SQL setup script. Define `APPDB_PASSWORD` before running `hello/startup.sql`; the script uses it when creating the `appdb` database user. You can run this script however you like, but we recommend installing [SQL Developer](http://www.oracle.com/technetwork/developer-tools/sql-developer/downloads/index.html) because it has a GUI interface so you can view the data easily.
 
 ## Running the Application
 
 Now you are ready to run the application. All you need to do is open a command window and run:
 
+    export JASON_SECRET_KEY=[32_BYTE_RANDOM_SECRET]
+    export JASON_DATABASE_URI=oracle://appdb:[APPDB_PASSWORD]@[SERVICE]
     python main.py  
     
 Then open your browser and go to: 

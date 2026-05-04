@@ -5,6 +5,36 @@ create or replace package body ora_idx_parser as
   type type_count       is table of number index by varchar2(1000);
   type pref_elem        is table of varchar2(1000);
 
+  function quote_identifier(p_name clob) return clob
+  is
+  begin
+    if (p_name is null or instr(p_name, chr(0)) > 0) then
+      raise_application_error(-20000, 'Invalid SQL identifier');
+    end if;
+    return '"' || replace(p_name, '"', '""') || '"';
+  end;
+
+  function sql_literal(p_value clob) return clob
+  is
+  begin
+    return '''' || replace(p_value, '''', '''''') || '''';
+  end;
+
+  function json_string(p_value clob) return clob
+  is
+    escaped clob;
+  begin
+    escaped := replace(p_value, '\', '\\');
+    escaped := replace(escaped, '"', '\"');
+    return '"' || escaped || '"';
+  end;
+
+  function comment_text(p_value clob) return clob
+  is
+  begin
+    return replace(replace(p_value, '*/', '* /'), '/*', '/ *');
+  end;
+
   /*
    *  Method used to get a map with all the fields of the data
    *  and its type
@@ -100,12 +130,10 @@ create or replace package body ora_idx_parser as
       for idxk in v_keys.first..v_keys.last 
       loop
         v_key := v_keys(idxk);
-        stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select ';
-        stmt := stmt || q'[q'[]' || v_key;
-        stmt := stmt || ']''';
-        stmt := stmt || ' path from dual) connect by level <= length(path)-length(replace(path, ''.''))+1'; 
+        stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select :path1 path from dual) ' ||
+                'connect by level <= length(:path2)-length(replace(:path3, ''.''))+1';
         path := '';
-        open path_cursor for stmt;
+        open path_cursor for stmt using v_key, v_key, v_key;
         << path_loop >>
         loop
           fetch path_cursor into v_path;
@@ -164,16 +192,14 @@ create or replace package body ora_idx_parser as
     for idx in v_keys.first..v_keys.last 
     loop
       v_key := v_keys(idx);
-      stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select ';
-      stmt := stmt || q'[q'[]' || v_key;
-      stmt := stmt || ']''';
-      stmt := stmt || ' path from dual) connect by level <= length(path)-length(replace(path, ''.''))+1'; 
+      stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select :path1 path from dual) ' ||
+              'connect by level <= length(:path2)-length(replace(:path3, ''.''))+1';
 
       path := '$';
       ismatview(path) := 1;
       path := '$.';
 
-      open path_cursor for stmt;
+      open path_cursor for stmt using v_key, v_key, v_key;
       loop
         fetch path_cursor into v_path;
         exit when path_cursor%NOTFOUND;
@@ -272,8 +298,8 @@ create or replace package body ora_idx_parser as
     dataguide_clob clob;
     stmt           clob;
   begin
-    stmt := 'select json_dataguide(' || json_data_column || ', dbms_json.format_hierarchical)' ||
-             ' from "' || collection_name || '"';
+    stmt := 'select json_dataguide(' || quote_identifier(json_data_column) || ', dbms_json.format_hierarchical)' ||
+             ' from ' || quote_identifier(collection_name);
     execute immediate stmt
         into dataguide_clob;
     dataguide_obj := json_object_t.parse(dataguide_clob);
@@ -290,10 +316,7 @@ create or replace package body ora_idx_parser as
     escaped_key clob;
     stmt        clob;
   begin
-    stmt := 'select replace('|| 'q''[' || p_key || ']'',  ''"'', ''\"'') from dual';
-    execute immediate stmt into escaped_key;
-
-    return escaped_key;
+    return replace(p_key, '"', '\"');
   end;
 
   /*
@@ -362,7 +385,7 @@ create or replace package body ora_idx_parser as
       end if;
 
       if (type_err) then
-        error_msg := '/* Path ' || fullpath || ' cannot have multiple types, found in ';
+        error_msg := '/* Path ' || comment_text(fullpath) || ' cannot have multiple types, found in ';
         return null;
       end if;
       
@@ -392,11 +415,11 @@ create or replace package body ora_idx_parser as
       j_obj  := prop.get_Object('items');
 
       if (j_obj.has('type') and j_obj.has('properties')) then
-        error_msg := '/* Array in path ' || fullpath || ' with mixed types cannot be indexed, found in '; 
+        error_msg := '/* Array in path ' || comment_text(fullpath) || ' with mixed types cannot be indexed, found in ';
         return null;
       end if; 
-        n_stmt := n_stmt || chr(10) || tabs || 'nested path ' || q'[q'[]' || p_path; 
-        n_stmt := n_stmt || '[*]]'' ' || chr(10) || tabs || chr(9) || 'columns( ';
+        n_stmt := n_stmt || chr(10) || tabs || 'nested path ' || sql_literal(p_path || '[*]');
+        n_stmt := n_stmt || ' ' || chr(10) || tabs || chr(9) || 'columns( ';
         n_stmt := n_stmt || generate_matview_paths(j_obj, '$', mat_paths_idx,fullpath, tabs || chr(9) || chr(9), error_msg, col_count, col_map_mv);
         n_stmt := n_stmt || chr(10) || tabs || chr(9) || ')'; 
     end if;
@@ -404,22 +427,19 @@ create or replace package body ora_idx_parser as
     col_name := 'col' || col_count;
     col_name := '"' || col_name || '"';
     if (j_type = 'string') then
-      n_stmt := n_stmt || chr(10) || tabs || col_name || ' varchar2 path ' || q'[q'[]' || p_path ;
-      n_stmt := n_stmt || ']'' ';
+      n_stmt := n_stmt || chr(10) || tabs || col_name || ' varchar2 path ' || sql_literal(p_path) || ' ';
       col_map_mv(col_name) := fullpath;
       col_count := col_count + 1;
     elsif (j_type = 'timestamp' or j_type = 'timestampTZ') then
-      n_stmt := n_stmt || chr(10) || tabs || col_name || ' timestamp path ' || q'[q'[]' || p_path ;
-      n_stmt := n_stmt || ']'' ';
+      n_stmt := n_stmt || chr(10) || tabs || col_name || ' timestamp path ' || sql_literal(p_path) || ' ';
       col_map_mv(col_name) := fullpath;
       col_count := col_count + 1;
     elsif (j_type = 'number' or j_type = 'double') then
-      n_stmt := n_stmt || chr(10) || tabs || col_name || ' number path ' || q'[q'[]' || p_path ;
-      n_stmt := n_stmt || ']'' ';
+      n_stmt := n_stmt || chr(10) || tabs || col_name || ' number path ' || sql_literal(p_path) || ' ';
       col_map_mv(col_name) := fullpath;
       col_count := col_count + 1;
     elsif not(j_type = 'object' or j_type = 'array') then
-      error_msg := '/* Type ''' || j_type || ''' in field ''' ||  fullpath || ''' not supported for materialized views, found in '; 
+      error_msg := '/* Type ''' || comment_text(j_type) || ''' in field ''' ||  comment_text(fullpath) || ''' not supported for materialized views, found in ';
       return null;
     end if;
     return n_stmt;
@@ -444,9 +464,9 @@ create or replace package body ora_idx_parser as
              tabs || 'refresh fast on statement with primary key' || chr(10) ||
              tabs || 'as select col.id, jt.*' || chr(10);
       tabs := tabs || chr(9);
-      result_output := result_output || tabs || 'from "' || collection_name || '" col,' || chr(10);
+      result_output := result_output || tabs || 'from ' || quote_identifier(collection_name) || ' col,' || chr(10);
       tabs := tabs || chr(9);
-      result_output := result_output || tabs || 'json_table(col.' || json_data_column || ', ''$'' error on error null on empty columns(';
+      result_output := result_output || tabs || 'json_table(col.' || quote_identifier(json_data_column) || ', ''$'' error on error null on empty columns(';
       result_output := result_output || ora_idx_parser.generate_matview_paths(dg, '$', mat_paths_idx, '$', tabs || chr(9), error_msg, col_count, col_map_mv);
       result_output := result_output || chr(10) || tabs || ')) jt;';
 
@@ -489,15 +509,13 @@ create or replace package body ora_idx_parser as
       is_other_branch := false;
       v_key := v_idx_keys_list(idx);
 
-      stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select ';
-      stmt := stmt || q'[q'[]' || v_key;
-      stmt := stmt || ']''';
-      stmt := stmt || ' path from dual) connect by level <= length(path)-length(replace(path, ''.''))+1'; 
+      stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select :path1 path from dual) ' ||
+              'connect by level <= length(:path2)-length(replace(:path3, ''.''))+1';
       
       key_path := '';
       idx_cursor := 1;
 
-      open path_cursor for stmt;
+      open path_cursor for stmt using v_key, v_key, v_key;
       loop
         fetch path_cursor into path_elem;
         exit when path_cursor%notfound;
@@ -549,12 +567,10 @@ create or replace package body ora_idx_parser as
     path          clob;
   begin
 
-    stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select ';
-    stmt := stmt || q'[q'[]' || v_key;
-    stmt := stmt || ']''';
-    stmt := stmt || ' path from dual) connect by level <= length(path)-length(replace(path, ''.''))+1'; 
+    stmt := 'select regexp_substr(path, ''[^.]+'', 1, level) from (select :path1 path from dual) ' ||
+            'connect by level <= length(:path2)-length(replace(:path3, ''.''))+1';
 
-    open path_cursor for stmt;
+    open path_cursor for stmt using v_key, v_key, v_key;
     loop
       fetch path_cursor into v_path;
       exit when path_cursor%NOTFOUND;
@@ -589,8 +605,8 @@ create or replace package body ora_idx_parser as
      out_stmt := out_stmt || 'unique ';
     end if;
   
-    out_stmt := out_stmt || 'index "$ora:' || collection_name || '.' ||idx_name
-                || '" on "' || collection_name || '" (';
+    out_stmt := out_stmt || 'index ' || quote_identifier('$ora:' || collection_name || '.' || idx_name)
+                || ' on ' || quote_identifier(collection_name) || ' (';
     
     v_keys :=  j_keys.get_keys;
     for k in v_keys.first..v_keys.last 
@@ -602,29 +618,29 @@ create or replace package body ora_idx_parser as
       jtype := key_types(v_key);
 
       v_key := sanitize_key_string(v_key);
-      out_stmt := out_stmt || chr(10) || chr(9) || 'json_value(' || json_data_column || ', ' || q'[q'[$.]' || v_key;
+      out_stmt := out_stmt || chr(10) || chr(9) || 'json_value(' || quote_identifier(json_data_column) || ', ';
       case jtype
         when 'string' then
-          out_stmt := out_stmt || 'stringOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'stringOnly()');
         when 'number' then
-          out_stmt := out_stmt || 'numberOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'numberOnly()');
         when 'double' then
-          out_stmt := out_stmt || 'numberOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'numberOnly()');
         when 'timestamp' then
-          out_stmt := out_stmt || 'dateTimeOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'dateTimeOnly()');
         when 'timestampTZ' then
-          out_stmt := out_stmt || 'dateTimeOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'dateTimeOnly()');
         when 'boolean' then
-          out_stmt := out_stmt || 'booleanOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'booleanOnly()');
         when 'binary' then
-          out_stmt := out_stmt || 'binaryOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'binaryOnly()');
         when 'id' then
-          out_stmt := out_stmt || 'idOnly()';
+          out_stmt := out_stmt || sql_literal('$.' || v_key || 'idOnly()');
         else
           err_count := err_count + 1;
-          return '/* Unsupported type ''' || jtype || ''', found in ''' || idx_spec || ''' index spec */';
+          return '/* Unsupported type ''' || comment_text(jtype) || ''', found in ''' || comment_text(idx_spec) || ''' index spec */';
       end case;
-      out_stmt := out_stmt || ']'' error on error null on empty)';
+      out_stmt := out_stmt || ' error on error null on empty)';
       if (order_str = '-1') then
         out_stmt := out_stmt || ' desc';
       else
@@ -655,12 +671,16 @@ create or replace package body ora_idx_parser as
     v_key     clob;
     jtype     clob;
     out_stmt  clob;
+    index_spec_json clob;
     num_keys  number := 0; 
   begin
-    out_stmt := 'declare' || chr(10) || chr(9) || 'col SODA_COLLECTION_T;' || chr(10) || chr(9) || 
-                'status number;' || chr(10) || 'begin' || chr(10) || chr(9) || 'col := dbms_soda.open_collection('''|| 
-                collection_name || ''');' || chr(10) || chr(9) || 'status := col.create_index(q''[{"name" : "$ora:' || collection_name || 
-                '.' || idx_name || '", "ttl" : ' || ttl || ', "fields" : [' ;
+    if not(regexp_like(ttl, '^[0-9]+$')) then
+      err_count := err_count + 1;
+      return '/* TTL value must be a non-negative integer, found in ''' || comment_text(idx_spec) || ''' index spec */';
+    end if;
+
+    index_spec_json := '{"name" : ' || json_string('$ora:' || collection_name || '.' || idx_name) ||
+                       ', "ttl" : ' || ttl || ', "fields" : [' ;
     
     v_keys :=  j_keys.get_keys;
     for k in v_keys.first..v_keys.last 
@@ -672,22 +692,27 @@ create or replace package body ora_idx_parser as
 
       if (jtype <> 'timestamp' and jtype <> 'timestampTZ') then
         err_count := err_count + 1;
-        return '/* TTL indexes only supports datetime type, found in ''' || idx_spec || ''' index spec */';
+        return '/* TTL indexes only supports datetime type, found in ''' || comment_text(idx_spec) || ''' index spec */';
       end if;
 
-      out_stmt := out_stmt || '{"path" : "' || escapeKeyChars(v_key) || '", "datatype": "timestamp"}';
+      index_spec_json := index_spec_json || '{"path" : ' || json_string(v_key) || ', "datatype": "timestamp"}';
 
       if (k <> v_keys.last) then
-        out_stmt := out_stmt || ', ';
+        index_spec_json := index_spec_json || ', ';
       end if;
       
     end loop;
 
     if (num_keys > 1) then
         err_count := err_count + 1;
-        return '/* TTL indexes apply to only one single "timestamp" field , found in ''' || idx_spec || ''' index spec */';
+        return '/* TTL indexes apply to only one single "timestamp" field , found in ''' || comment_text(idx_spec) || ''' index spec */';
     end if;
-    out_stmt := out_stmt || '], "indexNulls":true}]'');' || chr(10) || 'end;' || chr(10) || '/';
+    index_spec_json := index_spec_json || '], "indexNulls":true}';
+    out_stmt := 'declare' || chr(10) || chr(9) || 'col SODA_COLLECTION_T;' || chr(10) || chr(9) ||
+                'status number;' || chr(10) || 'begin' || chr(10) || chr(9) ||
+                'col := dbms_soda.open_collection(' || sql_literal(collection_name) || ');' || chr(10) || chr(9) ||
+                'status := col.create_index(' || sql_literal(index_spec_json) || ');' ||
+                chr(10) || 'end;' || chr(10) || '/';
     return out_stmt;
   end;
 
@@ -706,7 +731,7 @@ create or replace package body ora_idx_parser as
     key_str   clob;
     col_count number := 0;
   begin
-    out_stmt := 'create index "$ora:' || collection_name || '.' || idx_name || '" on mv_for_query_rewrite' || mv_rewrite_number || '(';
+    out_stmt := 'create index ' || quote_identifier('$ora:' || collection_name || '.' || idx_name) || ' on mv_for_query_rewrite' || mv_rewrite_number || '(';
     
     v_keys :=  j_keys.get_keys;
     for k in v_keys.first..v_keys.last 
@@ -750,7 +775,7 @@ create or replace package body ora_idx_parser as
     successful_idx number;
   begin
     successful_idx := total_idxs - err_count;
-    return  chr(10) || chr(10) || '/* Execution finished: ' || successful_idx || ' indexes parsed, ' || err_count || ' failures in collection ''' ||  collection_name || ''' */';
+    return  chr(10) || chr(10) || '/* Execution finished: ' || successful_idx || ' indexes parsed, ' || err_count || ' failures in collection ''' ||  comment_text(collection_name) || ''' */';
   end; 
 
   /*
@@ -762,10 +787,11 @@ create or replace package body ora_idx_parser as
     col_name  clob;
     stmt      clob;
   begin
-    stmt := 'select json_value(json_descriptor, ''$.contentColumn.name'') from user_soda_collections 
-             where uri_name = ''' || collection_name || ''' fetch first 1 rows only';
-    execute immediate stmt
-        into col_name;
+    select json_value(json_descriptor, '$.contentColumn.name')
+      into col_name
+      from user_soda_collections
+     where uri_name = collection_name
+     fetch first 1 rows only;
     return col_name;
   end;
 
@@ -778,10 +804,11 @@ create or replace package body ora_idx_parser as
     obj_name  clob;
     stmt      clob;
   begin
-    stmt := 'select object_name from user_soda_collections 
-             where uri_name = ''' || collection_name || ''' fetch first 1 rows only';
-    execute immediate stmt
-        into obj_name;
+    select object_name
+      into obj_name
+      from user_soda_collections
+     where uri_name = collection_name
+     fetch first 1 rows only;
     return obj_name;
   end;
 
@@ -863,7 +890,7 @@ create or replace package body ora_idx_parser as
         is_valid_idx := is_valid_index(key_types, arr_elem);
       end if;
       if not (is_valid_idx) then
-        final_output := final_output || chr(10) || chr(10) || '/* Parallel array detected in ''' || arr_elem.stringify() || ''' index spec */'; 
+        final_output := final_output || chr(10) || chr(10) || '/* Parallel array detected in ''' || comment_text(arr_elem.stringify()) || ''' index spec */';
         err_count := err_count + 1;
         continue indexes_spec;
       end if;
@@ -876,22 +903,22 @@ create or replace package body ora_idx_parser as
       loop
         v_key := v_idx_keys_list(idx);
         if not(key_types.exists(v_key)) then
-          final_output := final_output || chr(10) || chr(10) || '/* Path ''$.' || v_key || ''' does not exist, found in ''' || arr_elem.stringify() || ''' index spec */'; 
+          final_output := final_output || chr(10) || chr(10) || '/* Path ''$.' || comment_text(v_key) || ''' does not exist, found in ''' || comment_text(arr_elem.stringify()) || ''' index spec */';
           err_count := err_count + 1;
           continue indexes_spec;
         end if;
         if (key_types(v_key) = 'multitype') then
-          final_output := final_output || chr(10) || chr(10) || '/* Path ''$.' || v_key || ''' cannot have multiple types, found in ''' || arr_elem.stringify() || ''' index spec */'; 
+          final_output := final_output || chr(10) || chr(10) || '/* Path ''$.' || comment_text(v_key) || ''' cannot have multiple types, found in ''' || comment_text(arr_elem.stringify()) || ''' index spec */';
           err_count := err_count + 1;
           continue indexes_spec;
         end if;
         if (key_types(v_key) = 'object') then
-          final_output := final_output || chr(10) || chr(10) || '/* Objects cannot be indexed, found in ''' || arr_elem.stringify() || ''' index spec */'; 
+          final_output := final_output || chr(10) || chr(10) || '/* Objects cannot be indexed, found in ''' || comment_text(arr_elem.stringify()) || ''' index spec */';
           err_count := err_count + 1;
           continue indexes_spec;
         end if;
         if (key_types(v_key) = 'array') and not(key_types.exists(v_key || '[*]')) then
-          final_output := final_output || chr(10) || chr(10) || '/* Arrays cannot be indexed, found in ''' || arr_elem.stringify() || ''' index spec */'; 
+          final_output := final_output || chr(10) || chr(10) || '/* Arrays cannot be indexed, found in ''' || comment_text(arr_elem.stringify()) || ''' index spec */';
           err_count := err_count + 1;
           continue indexes_spec;
         end if;
@@ -929,7 +956,7 @@ create or replace package body ora_idx_parser as
         final_output := final_output || build_materialized_view(obj_name, mat_paths_idx, dg_hierarchical, error_msg, err_count, json_data_column, col_map_mv);
         if (error_msg is not null) then
           error_msg := null;
-          final_output := final_output || '''' || arr_elem.stringify() || ''' index spec */' ;
+          final_output := final_output || '''' || comment_text(arr_elem.stringify()) || ''' index spec */' ;
         else
           final_output := final_output || chr(10) || chr(10) || create_matview_idx(obj_name,v_name, v_idx_keys_obj, col_map_mv, parallel_idx);
           mv_rewrite_number := mv_rewrite_number + 1;

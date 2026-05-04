@@ -7,7 +7,7 @@
 # Dockerfile for MuSprint Stories service
 ###############################################################################
 
-ARG        BASE_IMAGE=oraclelinux:7.6
+ARG        BASE_IMAGE=oraclelinux:9
 FROM       ${BASE_IMAGE}
 
 LABEL      "provider"="Oracle"
@@ -21,19 +21,19 @@ COPY       . /app
 # Oracle Instant Client and SQL*Plus Client
 #
 ARG        RELEASE=19
-ARG        UPDATE=9
+ARG        UPDATE=19
 
-RUN        yum -y install oracle-release-el7 && \
-           yum -y install oracle-instantclient${RELEASE}.${UPDATE}-basic && \
-           yum -y install oracle-instantclient${RELEASE}.${UPDATE}-sqlplus && \
-           rm -rf /var/cache/yum
+RUN        dnf -y install oracle-release-el9 && \
+           dnf -y install oracle-instantclient${RELEASE}.${UPDATE}-basic && \
+           dnf -y install oracle-instantclient${RELEASE}.${UPDATE}-sqlplus && \
+           dnf clean all
 RUN        sqlplus -v
 
 #
 # Node.js module
 #
-RUN        yum install -y oracle-nodejs-release-el7 && \
-           yum install -y --disablerepo=ol7_developer_EPEL nodejs 
+RUN        dnf install -y nodejs npm && \
+           dnf clean all
 RUN        node -v
 RUN        npm -v
 
@@ -41,6 +41,8 @@ RUN        npm -v
 # Dependent node.js modules
 #
 RUN        npm install
+RUN        useradd -r app && chown -R app /app
+USER       app
 
 #
 # Prepare runnable

@@ -7,7 +7,7 @@
 # Dockerfile for MuSprint Stories frontend (React) server
 ###############################################################################
 
-ARG        BASE_IMAGE=oraclelinux:7.6
+ARG        BASE_IMAGE=oraclelinux:9
 FROM       ${BASE_IMAGE}
 
 LABEL      "provider"="Oracle"
@@ -20,8 +20,8 @@ COPY       . /app
 #
 # Node.js module
 #
-RUN        yum install -y oracle-nodejs-release-el7 && \
-           yum install -y --disablerepo=ol7_developer_EPEL nodejs 
+RUN        dnf install -y nodejs npm && \
+           dnf clean all
 RUN        node -v
 RUN        npm -v
 
@@ -29,6 +29,8 @@ RUN        npm -v
 # Dependent node.js modules
 #
 RUN        npm install
+RUN        useradd -r app && chown -R app /app
+USER       app
 
 #
 # Prepare runnable

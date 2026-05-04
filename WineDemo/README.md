@@ -47,10 +47,11 @@ losing the ability to leverage SQL directly over operational data.
       
           ~~~~
           docker run -it \
-             --env NODE_ORACLEDB_USER=ADMIN \
-             --env NODE_ORACLEDB_PASSWORD=[PASSWORD] \
-             --env NODE_ORACLEDB_CONNECTIONSTRING=[SERVICE] \
-             --env TNS_ADMIN=/wallet \
+	             --env NODE_ORACLEDB_USER=ADMIN \
+	             --env NODE_ORACLEDB_PASSWORD=[PASSWORD] \
+	             --env NODE_ORACLEDB_CONNECTIONSTRING=[SERVICE] \
+	             --env WINE_API_TOKEN=[API_TOKEN] \
+	             --env TNS_ADMIN=/wallet \
              --volume /local/path/to/wallet:/wallet \
              -p 3000:3000 \
              username/winedemo 
@@ -65,10 +66,11 @@ losing the ability to leverage SQL directly over operational data.
       
           ~~~~
           docker run -it \
-             --env NODE_ORACLEDB_USER=[USER] \
-             --env NODE_ORACLEDB_PASSWORD=[PASSWORD] \
-             --env NODE_ORACLEDB_CONNECTIONSTRING=[HOST]:[PORT]/[SERVICENAME] \
-             -p 3000:3000 \
+	             --env NODE_ORACLEDB_USER=[USER] \
+	             --env NODE_ORACLEDB_PASSWORD=[PASSWORD] \
+	             --env NODE_ORACLEDB_CONNECTIONSTRING=[HOST]:[PORT]/[SERVICENAME] \
+	             --env WINE_API_TOKEN=[API_TOKEN] \
+	             -p 3000:3000 \
              username/winedemo
           ~~~~  
 
@@ -103,12 +105,13 @@ losing the ability to leverage SQL directly over operational data.
 * Install the Oracle Instant Client library.  
   [https://github.com/oracle/node-oracledb/blob/master/INSTALL.md]()
 
-* Set database connection information
+* Set database connection information and an API token
 
   ~~~~
-  export NODE_ORACLEDB_USER=scott
-  export NODE_ORACLEDB_PASSWORD=tiger
-  export NODE_ORACLEDB_CONNECTIONSTRING=localhost:1521/orcl
+  export NODE_ORACLEDB_USER=[USER]
+  export NODE_ORACLEDB_PASSWORD=[PASSWORD]
+  export NODE_ORACLEDB_CONNECTIONSTRING=[HOST]:[PORT]/[SERVICENAME]
+  export WINE_API_TOKEN=[API_TOKEN]
   ~~~~
 
 * Build JET sources
